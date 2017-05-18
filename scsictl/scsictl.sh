@@ -4,7 +4,8 @@ source `dirname $0`/functions.sh
 
 case "$1" in
     list)
-        list_devices $2
+	shift
+        list_devices $@ 
         ;;
     
     status)
