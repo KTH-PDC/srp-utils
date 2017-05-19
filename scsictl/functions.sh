@@ -47,7 +47,7 @@ function show_scsi_host()
 	exit
     fi
     
-    # get basic scsi host info
+    # get basic SCSI host info
     state=`cat $hostpath/state`
     proc_name=`cat $hostpath/proc_name`
     supported_mode=`cat $hostpath/supported_mode`
@@ -55,7 +55,7 @@ function show_scsi_host()
 
     printf "SCSI host: $host [state: $state, name: $proc_name, modes: $active_mode/$supported_mode (active/supported)]\n"
 
-    # more detailed info per host
+    # more detailed info per host (still SCSI generic)
     cmd_per_lun=`cat $hostpath/cmd_per_lun`
     host_busy=`cat $hostpath/host_busy`
 
@@ -84,12 +84,27 @@ function show_srp_host()
     host=$1
     target=$2
     
-    hostpath=/sys/class/srp_host/$host
+    # we use the SCSI host path from sysfs, and check
+    hostpath=/sys/class/scsi_host/$host
     
     if [ ! -d $hostpath ]; then
 	echo "$prog: SCSI host path not found in sysfs"
 	exit
     fi
+
+    # we get SRP speficic attributes from the sysfs path
+    local_ib_device=`cat $hostpath/local_ib_device`
+    local_ib_port=`cat $hostpath/local_ib_port`
+    sgid=`cat $hostpath/sgid`
+    dgid=`cat $hostpath/dgid`
+    service_id=`cat $hostpath/service_id`
+    pkey=`cat $hostpath/pkey`
+    
+    printf "\tSRP InfiniBand Device: $local_ib_device (Port $local_ib_port)\n"
+    printf "\tSRP Initiator Port GID: $sgid\n"
+    printf "\tSRP Target Port GID: $dgid\n"
+    printf "\tSRP Target Node GUID: $service_id\n"
+    printf "\tSRP InfiniBand Partition Key: $pkey\n"
 
     if [ "$target" == "all" ]; then
 	# glob thru scsi targets in srp host path host/device/targetX:Y:Z where X host#, Y bus#, Z target#
