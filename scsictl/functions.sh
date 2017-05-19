@@ -1,63 +1,63 @@
 prog="scsictl"
 
-function list_devices()
+function show_devices()
 {
     case "$1" in
 	host)
-            # list only one host specified in argument 2    
+            # show only one host specified in argument 2
             if [ "$2" != "" ]; then
-                list_scsi_host $2 $3 $4
+                show_scsi_host $2 $3 $4
 	    else
-		echo "$prog: usage: $prog list host [host] [target] [verbose]"
+		echo "$prog: usage: $prog show host [host] [target] [verbose]"
 		exit
 	    fi
             ;;
 
 	all)
-	    # list all hosts with all targets
-	    list_all_scsi_hosts all $2
+	    # show all hosts with all targets
+	    show_all_scsi_hosts all $2
 	    ;;
 
 	*)
-	    # list all hosts 
-	    list_all_scsi_hosts
+	    # simply list all hosts
+	    show_all_scsi_hosts
 	    ;;
     esac
 }
 
 
-function list_all_scsi_hosts()
+function show_all_scsi_hosts()
 {
     # glob thru the scsi hosts found in sysfs, identified as /class/scsi_host/hostNN where NN host#
-    for hostdir in /sys/class/scsi_host/host[0-9]*/; do
-        host=`basename $hostdir`
-        list_scsi_host $host $1 $2
+    for hostpath in /sys/class/scsi_host/host[0-9]*/; do
+        host=`basename $hostpath`
+        show_scsi_host $host $1 $2
     done
 }
 
 
-function list_scsi_host()
+function show_scsi_host()
 {
     host=$1
-    hostdir=/sys/class/scsi_host/$host
+    hostpath=/sys/class/scsi_host/$host
 
     # check existence of host path in sysfs
-    if [ ! -d $hostdir ]; then
-	echo "$prog: SCSI host $host not found in sysfs path $hostdir"
+    if [ ! -d $hostpath ]; then
+	echo "$prog: SCSI host $host not found in sysfs path $hostpath"
 	exit
     fi
     
     # get basic scsi host info
-    state=`cat $hostdir/state`
-    proc_name=`cat $hostdir/proc_name`
-    supported_mode=`cat $hostdir/supported_mode`
-    active_mode=`cat $hostdir/active_mode`
+    state=`cat $hostpath/state`
+    proc_name=`cat $hostpath/proc_name`
+    supported_mode=`cat $hostpath/supported_mode`
+    active_mode=`cat $hostpath/active_mode`
 
     printf "SCSI host: $host [state: $state, name: $proc_name, modes: $active_mode/$supported_mode (active/supported)]\n"
 
     # more detailed info per host
-    cmd_per_lun=`cat $hostdir/cmd_per_lun`
-    host_busy=`cat $hostdir/host_busy`
+    cmd_per_lun=`cat $hostpath/cmd_per_lun`
+    host_busy=`cat $hostpath/host_busy`
 
     printf "\tSCSI Commands per LUN (Queue Depth): $cmd_per_lun\n"
     printf "\tSCSI Host Busy: "
@@ -66,71 +66,76 @@ function list_scsi_host()
     target=$2
 
     # detect SCSI subsystem type and act accordingly
-    if [ -d $hostdir/device/srp_host ]; then
+    if [ -d $hostpath/device/srp_host ]; then
 	printf "\tSCSI Subsystem Type: SRP (SCSI RDMA Protocol)\n"
-        list_srp_host $host $target
-    elif [ -d $hostdir/device/sas_host ]; then
+        show_srp_host $host $target
+    elif [ -d $hostpath/device/sas_host ]; then
 	printf "\tSCSI Subsystem Type: SAS (Serial Attached SCSI)\n"
-	list_sas_host $host $target
-    elif [ -d $hostdir/device/fc_host ]; then
+	show_sas_host $host $target
+    elif [ -d $hostpath/device/fc_host ]; then
 	printf "\tSCSI Subsystem type: FC (Fibre Channel)\n"
-	list_fc_host $host $target
+	show_fc_host $host $target
     fi
 }
 
 
-function list_srp_host()
+function show_srp_host()
 {
     host=$1
     target=$2
     
-    hostdir=/sys/class/srp_host/$host
+    hostpath=/sys/class/srp_host/$host
     
-    if [ ! -d $hostdir ]; then
+    if [ ! -d $hostpath ]; then
 	echo "$prog: SCSI host path not found in sysfs"
 	exit
     fi
 
     if [ "$target" == "all" ]; then
-	# glob thru scsi targets in srp host dir host/device/targetX:Y:Z where X host#, Y bus#, Z target#                                                  
-	for targetdir in $hostdir/device/target[0-9]*:[0-9]*:[0-9]*/; do
-            target=`basename $targetdir`
+	# glob thru scsi targets in srp host path host/device/targetX:Y:Z where X host#, Y bus#, Z target#
+	for targetpath in $hostpath/device/target[0-9]*:[0-9]*:[0-9]*/; do
+            target=`basename $targetpath`
             printf "\t\tSCSI target $target\n"
-	    list_srp_target $targetdir
+	    show_srp_target $targetpath
 	done
     elif [ "$target" != "" ]; then
-	targetdir="$hostdir/device/target$target"
-	list_srp_target $targetdir
+	targetpath="$hostpath/device/target$target"
+	show_srp_target $targetpath
     fi
 }
 
 
-function list_srp_target()
+function show_srp_target()
 {
-    targetdir=$1
+    targetpath=$1
     
     # verify existence of sysfs path for target
-    if [ ! -d $targetdir ]; then
-	echo "$prog: SCSI target path $targetdir not found in sysfs"
+    if [ ! -d $targetpath ]; then
+	echo "$prog: SCSI target path $targetpath not found in sysfs"
 	exit
     fi
 
-    # glob thru scsi devices in target dir target/X:Y:Z:N, where X,Y,Z as before, N lun#                                                                                                                                                
-    for devicedir in $targetdir/[0-9]*:[0-9]*:[0-9]:[0-9]*/; do
-        device=`basename $devicedir`
+    # glob thru scsi devices in target path target/X:Y:Z:N, where X,Y,Z as before, N lun#
+    for devicepath in $targetpath/[0-9]*:[0-9]*:[0-9]:[0-9]*/; do
+        device=`basename $devicepath`
         lun=`echo $device|awk -F: '{print $4}'`
         printf "\t\t\tLUN $lun (device $device)\n"
     done
 }
 
-
-function list_sas_host()
+function show_srp_lun()
 {
     return
 }
 
 
-function list_fc_host()
+function show_sas_host()
+{
+    return
+}
+
+
+function show_fc_host()
 {
     return
 }

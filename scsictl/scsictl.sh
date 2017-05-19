@@ -3,9 +3,9 @@
 source `dirname $0`/functions.sh
 
 case "$1" in
-    list)
+    show)
 	shift
-        list_devices $@ 
+        show_devices $@
         ;;
     
     status)
@@ -21,6 +21,6 @@ case "$1" in
         ;;
 
     *)
-        echo $"Usage: $0 {list|status|delete|rescan}"
+        echo $"Usage: $0 {show|status|delete|rescan}"
         exit 1
 esac
