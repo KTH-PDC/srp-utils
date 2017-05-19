@@ -95,16 +95,23 @@ function show_srp_host()
     # we get SRP speficic attributes from the sysfs path
     local_ib_device=`cat $hostpath/local_ib_device`
     local_ib_port=`cat $hostpath/local_ib_port`
+
     sgid=`cat $hostpath/sgid`
     dgid=`cat $hostpath/dgid`
+
     service_id=`cat $hostpath/service_id`
     pkey=`cat $hostpath/pkey`
+
+    sg_tablesize=`cat $hostpath/sg_tablesize`
+    tl_retry_count=`cat $hostpath/tl_retry_count`
     
     printf "\tSRP InfiniBand Device: $local_ib_device (Port $local_ib_port)\n"
     printf "\tSRP Initiator Port GID: $sgid\n"
     printf "\tSRP Target Port GID: $dgid\n"
     printf "\tSRP Target Node GUID: $service_id\n"
     printf "\tSRP InfiniBand Partition Key: $pkey\n"
+    printf "\tSRP Scatter/Gather Table Size: $sg_tablesize\n"
+    printf "\tSRP Transport Layer Retry count: $tl_retry_count\n"
 
     if [ "$target" == "all" ]; then
 	# glob thru scsi targets in srp host path host/device/targetX:Y:Z where X host#, Y bus#, Z target#
@@ -135,12 +142,40 @@ function show_srp_target()
         device=`basename $devicepath`
         lun=`echo $device|awk -F: '{print $4}'`
         printf "\t\t\tLUN $lun (device $device)\n"
+	show_srp_lun $devicepath
     done
+}
+
+function show_scsi_lun()
+{
+    devicepath=$1
+
+    if [ ! -d $devicepath ]; then
+	echo "$prog: SCSI device path $devicepath not found in sysfs"
+	exit
+    fi
+
+    state=`cat $devicepath/state`
+    vendor=`cat $devicepath/vendor`
+    model=`cat $devicepath/model`
+    queue_depth=`cat $devicepath/queue_depth`
+
+    blockdev=`ls $devicepath/block/`
+    blockdev_majmin=`cat $devicepath/block/$blockdev/dev`
+    
+    printf "\t\t\t\tDevice Node: $blockdev\n"
+    printf "\t\t\t\tDevice Kernel ID: $blockdev_majmin\n"
+
+    printf "\t\t\t\tDevice State: $state\n"
+    printf "\t\t\t\tDevice Vendor: $vendor\n"
+    printf "\t\t\t\tDevice Model: $model\n"
+    printf "\t\t\t\tDevice Queue Depth: $queue_depth\n"
+    
 }
 
 function show_srp_lun()
 {
-    return
+    show_scsi_lun $1
 }
 
 
