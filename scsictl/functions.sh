@@ -48,16 +48,16 @@ function show_scsi_host()
     fi
     
     # get basic SCSI host info
-    state=`cat $hostpath/state`
-    proc_name=`cat $hostpath/proc_name`
-    supported_mode=`cat $hostpath/supported_mode`
-    active_mode=`cat $hostpath/active_mode`
+    state=$(<$hostpath/state)
+    proc_name=$(<$hostpath/proc_name)
+    supported_mode=$(<$hostpath/supported_mode)
+    active_mode=$(<$hostpath/active_mode)
 
     printf "SCSI host: $host [state: $state, name: $proc_name, modes: $active_mode/$supported_mode (active/supported)]\n"
 
     # more detailed info per host (still SCSI generic)
-    cmd_per_lun=`cat $hostpath/cmd_per_lun`
-    host_busy=`cat $hostpath/host_busy`
+    cmd_per_lun=$(<$hostpath/cmd_per_lun)
+    host_busy=$(<$hostpath/host_busy)
 
     printf "\tSCSI Commands per LUN (Queue Depth): $cmd_per_lun\n"
     printf "\tSCSI Host Busy: "
@@ -93,21 +93,21 @@ function show_srp_host()
     fi
 
     # we get SRP speficic attributes from the sysfs path
-    local_ib_device=`cat $hostpath/local_ib_device`
-    local_ib_port=`cat $hostpath/local_ib_port`
+    local_ib_device=$(<$hostpath/local_ib_device)
+    local_ib_port=$(<$hostpath/local_ib_port)
 
-    sgid=`cat $hostpath/sgid`
-    dgid=`cat $hostpath/dgid`
+    sgid=$(<$hostpath/sgid)
+    dgid=$(<$hostpath/dgid)
 
-    service_id=`cat $hostpath/service_id`
-    pkey=`cat $hostpath/pkey`
+    service_id=$(<$hostpath/service_id)
+    pkey=$(<$hostpath/pkey)
 
-    sg_tablesize=`cat $hostpath/sg_tablesize`
-    tl_retry_count=`cat $hostpath/tl_retry_count`
+    sg_tablesize=$(<$hostpath/sg_tablesize)
+    tl_retry_count=$(<$hostpath/tl_retry_count)
     
     printf "\tSRP InfiniBand Device: $local_ib_device (Port $local_ib_port)\n"
-    printf "\tSRP Initiator Port GID: $sgid\n"
-    printf "\tSRP Target Port GID: $dgid\n"
+    printf "\tSRP Local Port GID: $sgid\n"
+    printf "\tSRP Remote Port GID: $dgid\n"
     printf "\tSRP Target Node GUID: $service_id\n"
     printf "\tSRP InfiniBand Partition Key: $pkey\n"
     printf "\tSRP Scatter/Gather Table Size: $sg_tablesize\n"
@@ -141,7 +141,7 @@ function show_srp_target()
     for devicepath in $targetpath/[0-9]*:[0-9]*:[0-9]:[0-9]*/; do
         device=`basename $devicepath`
         lun=`echo $device|awk -F: '{print $4}'`
-        printf "\t\t\tLUN $lun (device $device)\n"
+        printf "\t\t\tLUN $lun [ID $device]\n"
 	show_srp_lun $devicepath
     done
 }
@@ -155,21 +155,17 @@ function show_scsi_lun()
 	exit
     fi
 
-    state=`cat $devicepath/state`
-    vendor=`cat $devicepath/vendor`
-    model=`cat $devicepath/model`
-    queue_depth=`cat $devicepath/queue_depth`
+    state=$(<$devicepath/state)
+    vendor=$(<$devicepath/vendor)
+    model=$(<$devicepath/model)
+    queue_depth=$(<$devicepath/queue_depth)
 
     blockdev=`ls $devicepath/block/`
-    blockdev_majmin=`cat $devicepath/block/$blockdev/dev`
+    blockdev_majmin=$(<$devicepath/block/$blockdev/dev)
     
-    printf "\t\t\t\tDevice Node: $blockdev\n"
-    printf "\t\t\t\tDevice Kernel ID: $blockdev_majmin\n"
-
-    printf "\t\t\t\tDevice State: $state\n"
-    printf "\t\t\t\tDevice Vendor: $vendor\n"
-    printf "\t\t\t\tDevice Model: $model\n"
-    printf "\t\t\t\tDevice Queue Depth: $queue_depth\n"
+    printf "\t\t\t\tBlock Device: $blockdev [$blockdev_majmin]\n"
+    printf "\t\t\t\tVendor/Model: $vendor/$model\n"
+    printf "\t\t\t\tQueue Depth: $queue_depth [state: $state]\n"
     
 }
 
