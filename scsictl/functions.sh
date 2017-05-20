@@ -8,14 +8,14 @@ function show_devices()
             if [ "$2" != "" ]; then
                 show_scsi_host $2 $3 $4
 	    else
-		echo "$prog: usage: $prog show host [hostNN] [target|all]"
+		echo "$prog: usage: $prog show host [hostNN] [topology]"
 		exit
 	    fi
             ;;
 
 	all)
-	    # show all hosts with all targets
-	    show_all_scsi_hosts all $2
+	    # show all hosts with topology
+	    show_all_scsi_hosts topology
 	    ;;
 
 	hosts)
@@ -36,7 +36,7 @@ function show_all_scsi_hosts()
     # glob thru the scsi hosts found in sysfs, identified as /class/scsi_host/hostNN where NN host#
     for hostpath in /sys/class/scsi_host/host[0-9]*/; do
         local host=`basename $hostpath`
-        show_scsi_host $host $1 $2
+        show_scsi_host $host $1
 	printf "\n"
     done
 }
@@ -45,6 +45,8 @@ function show_all_scsi_hosts()
 function show_scsi_host()
 {
     local host=$1
+    local mode=$2
+
     local hostpath=/sys/class/scsi_host/$host
 
     # check existence of host path in sysfs
@@ -70,18 +72,16 @@ function show_scsi_host()
 
     printf "\tSCSI Scatter/Gather Table Size: $sg_tablesize\n"
 
-    local target=$2
-
     # detect SCSI subsystem type and act accordingly
     if [ -d $hostpath/device/srp_host ]; then
 	printf "\tSCSI Subsystem Type: SRP (SCSI RDMA Protocol)\n"
-        show_srp_host $host $target
+        show_srp_host $host $mode
     elif [ -d $hostpath/device/sas_host ]; then
 	printf "\tSCSI Subsystem Type: SAS (Serial Attached SCSI)\n"
-	show_sas_host $host $target
+	show_sas_host $host $mode
     elif [ -d $hostpath/device/fc_host ]; then
 	printf "\tSCSI Subsystem type: FC (Fibre Channel)\n"
-	show_fc_host $host $target
+	show_fc_host $host $mode
     fi
 }
 
@@ -89,7 +89,7 @@ function show_scsi_host()
 function show_srp_host()
 {
     local host=$1
-    local target=$2
+    local mode=$2
 
     # we use the SCSI host path from sysfs, and check
     local hostpath=/sys/class/scsi_host/$host
@@ -117,14 +117,11 @@ function show_srp_host()
     printf "\tSRP InfiniBand Partition Key: $pkey\n"
     printf "\tSRP Transport Layer Retry count: $tl_retry_count\n"
 
-    if [ "$target" == "all" ]; then
+    if [ "$mode" == "topology" ]; then
 	# glob thru scsi targets in srp host path host/device/targetX:Y:Z where X host#, Y bus#, Z target#
 	for targetpath in $hostpath/device/target[0-9]*:[0-9]*:[0-9]*/; do
 	    show_scsi_target $targetpath "\t"
 	done
-    elif [ "$target" != "" ]; then
-	targetpath="$hostpath/device/target$target"
-	show_scsi_target $targetpath "\t"
     fi
 }
 
@@ -188,7 +185,7 @@ function show_scsi_lun()
 function show_sas_host()
 {
     local host=$1
-    local target=$2
+    local mode=$2
 
     local hostpath=/sys/class/scsi_host/$host
 
@@ -207,12 +204,14 @@ function show_sas_host()
 
     printf "\n\tSAS Host Identification: '$board_name' [product: '$version_product', firmware: $version_fw]\n"
     printf "\tSAS Host Address: $host_sas_address\n"
-    printf "\n\tSAS Fabric:\n\n"
 
-    local devpath="$hostpath/device"
-
-    printf "\tHost at SAS Address $host_sas_address\n"
-    show_sas_node $devpath "\t\t"
+    if [ "$mode" == "topology" ]; then
+	printf "\n\tSAS Fabric:\n\n"
+	printf "\tHost at SAS Address $host_sas_address\n"
+	
+	local devpath="$hostpath/device"
+	show_sas_node $devpath "\t\t"
+    fi
 }
 
 
@@ -222,7 +221,7 @@ function show_sas_node()
     local prepend=$2
 
     if [ ! -d $devpath ]; then
-	echo "show_sas_node() - device path $devpath not found"
+	echo "$prog: device path $devpath not found"
 	exit
     fi
 
@@ -259,7 +258,7 @@ function show_sas_node()
 	 local num_phys=$(<$port_devpath/num_phys)
 
 	 printf "\n$prepend""Port $port [PHY count: $num_phys]\n"
-	 printf "$prepend\t""Assigned PHYs:"
+	 printf "$prepend\t""Assigned PHY(s):"
 
 	 # glob thru SAS PHYs attached to this port
 	 for phypath in $portpath/phy-*; do 
