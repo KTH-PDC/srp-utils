@@ -1,6 +1,50 @@
 prog="scsictl"
 
-function show_devices()
+function srp_action()
+{
+    case "$1" in
+	hosts)
+	    shift
+	    srp_report_hosts $@
+	    ;;
+	
+	discover)
+	    shift
+	    srp_discover_targets $@
+	    ;;
+	
+	targetlogin)
+	    shift
+	    srp_target_login $@
+	    ;;
+	
+	*)
+	    echo "$prog: usage: $prog srp [hosts|discover|targetlogin]"
+	    exit
+	    ;;
+    esac
+}
+
+
+function srp_report_hosts()
+{
+    local srpif=$1
+
+    if [ "$srpif" == "" ]; then
+	echo "$prog: usage: $prog srp hosts [interface]"
+	exit
+    fi
+
+    local srpifpath="/sys/class/infiniband_srp/$srpif"
+    
+    if [ -d $srpifpath ]; then
+	local hosts=$(srp_node_hosts $srpifpath)
+	echo $hosts
+    fi
+}
+
+
+function show_action()
 {
     case "$1" in
 	host)
@@ -20,6 +64,7 @@ function show_devices()
     esac
 }
 
+
 function show_host()
 {
     case "$1" in
@@ -29,7 +74,11 @@ function show_host()
 	
 	*)
 	    if [ "$1" != "" ]; then
-		show_scsi_host "host$1" $2
+		if [[ "$1" =~ ^host[0-9]*$ ]]; then
+		    show_scsi_host $1 $2
+		else
+		    show_scsi_host "host$1" $2
+		fi
 	    else
 		echo "$prog: usage $prog show host [host ID|all] [detail|topology]"
 		exit
@@ -43,12 +92,12 @@ function show_srp()
 {
     case "$1" in
 	all)
-	    show_all_srp_nodes $2
+	    show_all_srp_if $2
 	    ;;
 	
 	*)
 	    if [ "$1" != "" ]; then
-		show_srp_node $1 $2
+		show_srp_if $1 $2
 	    else
 		echo "$prog: usage show srp [node ID|all] [detail]"
 		exit
@@ -387,32 +436,39 @@ function show_fc_host()
 }
 
 
-function show_all_srp_nodes()
+function show_all_srp_if()
 {
     # glob thru all the SRP paths 
     local srpnodes="/sys/class/infiniband_srp/*"
 
     for srpnodepath in $srpnodes; do
 	if [ -d $srpnodepath ]; then
-	    show_srp_node $srpnodepath $1
+	    local srpnode=`basename $srpnodepath`
+	    show_srp $srpnode $1
 	fi
     done
 }
 
 
-function show_srp_node()
+function show_srp_if()
 {
-    local srpnodepath=$1
+    local srpnode=$1
     local mode=$2
 
-    # SRP node name from the sysfs path
-    local srpnode=`basename $srpnodepath`
+    # SRP i/f name from the sysfs path
+    local srpnodepath="/sys/class/infiniband_srp/$srpnode"
+
+    # check existence
+    if [ ! -d $srpnodepath ]; then
+	echo "$prog: SRP node not found at sysfs path $srpnodepath"
+	exit
+    fi
 
     # get associated InfiniBand HCA and port
     local ibdev=$(<$srpnodepath/ibdev)
     local port=$(<$srpnodepath/port)
 
-    printf "InfiniBand SRP Node: $srpnode [device $ibdev, port $port]\n"
+    printf "InfiniBand SRP Interface: $srpnode [device $ibdev, port $port]\n"
 
     if [ "$mode" == "detail" ]; then
 	# construct sysfs path to InfiniBand HCA device
@@ -438,29 +494,45 @@ function show_srp_node()
 
 	# get NUMA node# for the PCI device
 	local numa_node=$(<$srpnodepath/device/numa_node)
-	printf "\tNUMA Node: $numa_node\n"
-	printf "\n"
+	printf "\tNUMA Node: $numa_node\n\n"
 
-	# get SCSI host interfaces for this SRP subsystem
-	local srphosts=$(show_srp_node_hosts $ibdev $port)
-	printf "\tSRP SCSI Hosts: $srphosts\n"
+	# get SCSI host interfaces for this SRP interface
+	local srphosts=$(srp_node_hosts $srpnodepath)
+	printf "\tSRP SCSI Hosts: $srphosts\n\n"
     fi
 }
 
 
-function show_srp_node_hosts()
+function srp_node_hosts()
 {
-    local ibdev=$1
-    local port=$2
+    local srpnodepath=$1
+
+    local ibdev=$(<$srpnodepath/ibdev)
+    local port=$(<$srpnodepath/port)
+
+    local -a hosts=()
+    local hostcount=0
 
     # define glob for srp host paths in sysfs
     local srphosts="/sys/class/srp_host/host[0-9]*"
 
     # glob thru SRP hosts
-    for srphostpath in $srphosts; do
-	if [ -d $srphostpath ]; then
-	    srphost=`basename $srphostpath`
-	    echo "found SRP SCSI host $srphost"
+    for srphost in $srphosts; do
+	if [ -d $srphost ]; then
+	    host=`basename $srphost`
+	    scsihost="/sys/class/scsi_host/$host"
+ 
+	    if [ -d $scsihost ]; then
+		local_ib_device=$(<$scsihost/local_ib_device)
+		local_ib_port=$(<$scsihost/local_ib_port)
+
+		if [ "$local_ib_device" == "$ibdev" ] && [ "$local_ib_port" == "$port" ]; then
+		    hosts[$hostcount]=$host
+		    ((hostcount++))
+		fi
+	    fi
 	fi
     done
+
+    printf "${hosts[*]}"
 }

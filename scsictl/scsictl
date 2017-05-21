@@ -5,11 +5,12 @@ source `dirname $0`/functions.sh
 case "$1" in
     show)
 	shift
-        show_devices $@
+        show_action $@
         ;;
     
-    status)
-        dev_status
+    srp)
+        shift
+	srp_action $@
 	;;
     
     delete)
