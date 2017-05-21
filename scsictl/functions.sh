@@ -58,7 +58,6 @@ function show_srp()
 }
 
 
-
 function show_all_scsi_hosts()
 {
     # glob thru the scsi hosts found in sysfs, identified as /class/scsi_host/hostNN where NN host#
@@ -150,10 +149,12 @@ function show_srp_host()
     printf "\tSRP Transport Layer Retry count: $tl_retry_count\n"
 
     if [ "$mode" == "topology" ]; then
-	# glob thru scsi targets in srp host path host/device/targetX:Y:Z where X host#, Y bus#, Z target#
-	for targetpath in $hostpath/device/target[0-9]*:[0-9]*:[0-9]*/; do
-	    show_scsi_target $targetpath "\t"
-	done
+	if [ -d $hostpath/device/target[0-9]*:[0-9]*:[0-9]*/ ]; then
+	    # glob thru scsi targets in srp host path host/device/targetX:Y:Z where X host#, Y bus#, Z target#
+	    for targetpath in $hostpath/device/target[0-9]*:[0-9]*:[0-9]*/; do
+		show_scsi_target $targetpath "\t"
+	    done
+	fi
     fi
 }
 
@@ -258,6 +259,15 @@ function show_sas_node()
     fi
 
     local devname=`basename $devpath`
+
+    # if the device has SCSI targets
+    if [ -d $devpath/target[0-9]*:[0-9]*:[0-9]* ]; then
+        # glob thru SCSI targets found in this end device
+        for targetpath in $devpath/target[0-9]*:[0-9]*:[0-9]*; do
+            show_scsi_target $targetpath "$prepend"
+        done
+	printf "\n"
+    fi
 
     # check if we are a SAS expander
     if [ -d $devpath/sas_expander/$devname ]; then
