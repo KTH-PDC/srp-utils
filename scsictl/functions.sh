@@ -4,31 +4,59 @@ function show_devices()
 {
     case "$1" in
 	host)
-            # show only one host specified in argument 2
-            if [ "$2" != "" ]; then
-                show_scsi_host $2 $3 $4
-	    else
-		echo "$prog: usage: $prog show host [hostNN] [topology]"
-		exit
-	    fi
+	    shift
+	    show_host $@
             ;;
 
-	all)
-	    # show all hosts with topology
-	    show_all_scsi_hosts topology
+	srp)
+	    shift
+	    show_srp $@
 	    ;;
-
-	hosts)
-	    # simply list all hosts
-	    show_all_scsi_hosts
-	    ;;
-
+	
 	*)
-	    echo "$prog: usage: $prog show [all|hosts|host]"
+	    echo "$prog: usage: $prog show [host|srp]"
 	    exit
 	    ;;
     esac
 }
+
+function show_host()
+{
+    case "$1" in
+	all)
+	    show_all_scsi_hosts $2
+	    ;;
+	
+	*)
+	    if [ "$1" != "" ]; then
+		show_scsi_host "host$1" $2
+	    else
+		echo "$prog: usage $prog show host [host ID|all] [detail|topology]"
+		exit
+	    fi
+	    ;;
+    esac
+}
+
+
+function show_srp()
+{
+    case "$1" in
+	all)
+	    show_all_srp_nodes $2
+	    ;;
+	
+	*)
+	    if [ "$1" != "" ]; then
+		show_srp_node $1 $2
+	    else
+		echo "$prog: usage show srp [node ID|all] [detail]"
+		exit
+	    fi
+	    ;;
+    esac
+}
+
 
 
 function show_all_scsi_hosts()
@@ -37,7 +65,6 @@ function show_all_scsi_hosts()
     for hostpath in /sys/class/scsi_host/host[0-9]*/; do
         local host=`basename $hostpath`
         show_scsi_host $host $1
-	printf "\n"
     done
 }
 
@@ -63,25 +90,30 @@ function show_scsi_host()
 
     printf "Host Interface: $host [state: $state, name: $proc_name, modes: $active_mode/$supported_mode (active/supported)]\n"
 
-    # more detailed info per host (still SCSI generic)
-    local host_busy=$(<$hostpath/host_busy)
-    local sg_tablesize=$(<$hostpath/sg_tablesize)
+    if [ "$mode" == "detail" ] || [ "$mode" == "topology" ]; then
+    
+	# more detailed info per host (still SCSI generic)
+	local host_busy=$(<$hostpath/host_busy)
+	local sg_tablesize=$(<$hostpath/sg_tablesize)
+	
+	printf "\tSCSI Host Busy: "
+	( ((host_busy)) && echo yes ) || ( ((!host_busy)) && echo no )
+	
+	printf "\tSCSI Scatter/Gather Table Size: $sg_tablesize\n"
+	
+	# detect SCSI subsystem type and act accordingly
+	if [ -d $hostpath/device/srp_host ]; then
+	    printf "\tSCSI Subsystem Type: SRP (SCSI RDMA Protocol)\n"
+            show_srp_host $host $mode
+	elif [ -d $hostpath/device/sas_host ]; then
+	    printf "\tSCSI Subsystem Type: SAS (Serial Attached SCSI)\n"
+	    show_sas_host $host $mode
+	elif [ -d $hostpath/device/fc_host ]; then
+	    printf "\tSCSI Subsystem type: FC (Fibre Channel)\n"
+	    show_fc_host $host $mode
+	fi
 
-    printf "\tSCSI Host Busy: "
-    ( ((host_busy)) && echo yes ) || ( ((!host_busy)) && echo no )
-
-    printf "\tSCSI Scatter/Gather Table Size: $sg_tablesize\n"
-
-    # detect SCSI subsystem type and act accordingly
-    if [ -d $hostpath/device/srp_host ]; then
-	printf "\tSCSI Subsystem Type: SRP (SCSI RDMA Protocol)\n"
-        show_srp_host $host $mode
-    elif [ -d $hostpath/device/sas_host ]; then
-	printf "\tSCSI Subsystem Type: SAS (Serial Attached SCSI)\n"
-	show_sas_host $host $mode
-    elif [ -d $hostpath/device/fc_host ]; then
-	printf "\tSCSI Subsystem type: FC (Fibre Channel)\n"
-	show_fc_host $host $mode
+	printf "\n"
     fi
 }
 
@@ -142,9 +174,6 @@ function show_scsi_target()
 
     # glob thru scsi devices in target path target/X:Y:Z:N, where X,Y,Z as before, N lun#
     for devicepath in $targetpath/[0-9]*:[0-9]*:[0-9]*:[0-9]*/; do
-        local device=`basename $devicepath`
-        local lun=`echo $device|awk -F: '{print $4}'`
-
 	show_scsi_lun $devicepath "$prepend\t"
     done
 }
@@ -159,6 +188,9 @@ function show_scsi_lun()
 	echo "$prog: SCSI device path $devicepath not found in sysfs"
 	exit
     fi
+
+    local device=`basename $devicepath`
+    local lun=`echo $device|awk -F: '{print $4}'`
 
     local state=$(<$devicepath/state)
     local vendor=$(<$devicepath/vendor)
@@ -314,4 +346,47 @@ function show_sas_node()
 function show_fc_host()
 {
     return
+}
+
+
+function show_all_srp_nodes()
+{
+    # glob thru all the SRP subsystems found
+    for srpnodepath in /sys/class/infiniband_srp/*; do
+	show_srp_node $srpnodepath $1
+    done
+}
+
+function show_srp_node()
+{
+    local srpnodepath=$1
+    local mode=$2
+
+    local srpnode=`basename $srpnodepath`
+
+    local ibdev=$(<$srpnodepath/ibdev)
+    local port=$(<$srpnodepath/port)
+
+    printf "InfiniBand SRP Node: $srpnode [device $ibdev, port $port]\n"
+
+    if [ "$mode" == "detail" ]; then
+	if [ -d $srpnodepath/device/infiniband/* ]; then
+	    fw_ver=$(<$srpnodepath/device/infiniband/*/fw_ver)
+	    hca_type=$(<$srpnodepath/device/infiniband/*/hca_type)
+	    node_desc=$(<$srpnodepath/device/infiniband/*/node_desc)
+	    hw_rev=$(<$srpnodepath/device/infiniband/*/hw_rev)
+	    node_type=$(<$srpnodepath/device/infiniband/*/node_type)
+	    node_guid=$(<$srpnodepath/device/infiniband/*/node_guid)
+	    sys_image_guid=$(<$srpnodepath/device/infiniband/*/sys_image_guid)
+
+	    printf "\tHCA Type: $hca_type [hw revision: $hw_rev, firmware: $fw_ver]\n"
+	    printf "\tNode Type: '$node_type' [description: '$node_desc']\n"
+	    printf "\tNode GUID: $node_guid\n"
+	    printf "\tSystem Image GUID: $sys_image_guid\n"
+	fi
+
+	numa_node=$(<$srpnodepath/device/numa_node)
+	printf "\tNUMA Node: $numa_node\n"
+	printf "\n"
+    fi
 }
