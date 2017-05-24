@@ -1,3 +1,12 @@
+# scsictl - a tool for managing the linux scsi and srp subsystems
+#
+# functions.sh - scsictl subroutines
+# Author: Ilari Korhonen, KTH Royal Institute of Technology
+#
+# Copyright (C) 2017 KTH Royal Institute of Technology. All rights reserved.
+# See LICENSE file for more information
+
+
 prog="scsictl"
 
 function srp_action()
