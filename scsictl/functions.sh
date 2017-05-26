@@ -6,7 +6,6 @@
 # Copyright (C) 2017 KTH Royal Institute of Technology. All rights reserved.
 # See LICENSE file for more information
 
-
 prog="scsictl"
 
 function srp_action()
@@ -144,18 +143,18 @@ function show_scsi_host()
     fi
 
     # get basic SCSI host info
-    local state=$(<$hostpath/state)
-    local proc_name=$(<$hostpath/proc_name)
-    local supported_mode=$(<$hostpath/supported_mode)
-    local active_mode=$(<$hostpath/active_mode)
+    local state=$(read_sysfs_path $hostpath/state)
+    local proc_name=$(read_sysfs_path $hostpath/proc_name)
+    local supported_mode=$(read_sysfs_path $hostpath/supported_mode)
+    local active_mode=$(read_sysfs_path $hostpath/active_mode)
 
     printf "Host Interface: $host "
     printf "[state: $state, name: $proc_name, modes: $active_mode/$supported_mode (active/supported)]\n"
 
     if [ "$mode" == "detail" ] || [ "$mode" == "topology" ]; then
 	# more detailed info per host (still SCSI generic)
-	local host_busy=$(<$hostpath/host_busy)
-	local sg_tablesize=$(<$hostpath/sg_tablesize)
+	local host_busy=$(read_sysfs_path $hostpath/host_busy)
+	local sg_tablesize=$(read_sysfs_path $hostpath/sg_tablesize)
 	
 	printf "\tSCSI Host Busy: "
 	( ((host_busy)) && echo yes ) || ( ((!host_busy)) && echo no )
@@ -193,15 +192,15 @@ function show_srp_host()
     fi
 
     # we get SRP speficic attributes from the sysfs path
-    local local_ib_device=$(<$hostpath/local_ib_device)
-    local local_ib_port=$(<$hostpath/local_ib_port)
+    local local_ib_device=$(read_sysfs_path $hostpath/local_ib_device)
+    local local_ib_port=$(read_sysfs_path $hostpath/local_ib_port)
 
-    local sgid=$(<$hostpath/sgid)
-    local dgid=$(<$hostpath/dgid)
+    local sgid=$(read_sysfs_path $hostpath/sgid)
+    local dgid=$(read_sysfs_path $hostpath/dgid)
 
-    local service_id=$(<$hostpath/service_id)
-    local pkey=$(<$hostpath/pkey)
-    local tl_retry_count=$(<$hostpath/tl_retry_count)
+    local service_id=$(read_sysfs_path $hostpath/service_id)
+    local pkey=$(read_sysfs_path $hostpath/pkey)
+    local tl_retry_count=$(read_sysfs_path $hostpath/tl_retry_count)
     
     printf "\n\tSRP InfiniBand Device: $local_ib_device (Port $local_ib_port)\n"
     printf "\tSRP Local Port GID: $sgid\n"
@@ -261,14 +260,14 @@ function show_scsi_lun()
     local device=`basename $devicepath`
     local lun=`echo $device|awk -F: '{print $4}'`
 
-    local state=$(<$devicepath/state)
-    local vendor=$(<$devicepath/vendor)
-    local model=$(<$devicepath/model)
-    local queue_depth=$(<$devicepath/queue_depth)
+    local state=$(read_sysfs_path $devicepath/state)
+    local vendor=$(read_sysfs_path $devicepath/vendor)
+    local model=$(read_sysfs_path $devicepath/model)
+    local queue_depth=$(read_sysfs_path $devicepath/queue_depth)
 
     if [ -d $devicepath/block ]; then
 	local blockdev=`ls $devicepath/block/`
-	local blockdev_majmin=$(<$devicepath/block/$blockdev/dev)
+	local blockdev_majmin=$(read_sysfs_path $devicepath/block/$blockdev/dev)
     else
 	local blockdev="N/A"
 	local blockdev_majmin="N/A"
@@ -296,12 +295,12 @@ function show_sas_host()
     fi
     
     # identify SAS host device
-    local board_name=$(<$hostpath/board_name)
-    local version_product=$(<$hostpath/version_product)
-    local version_fw=$(<$hostpath/version_fw)
+    local board_name=$(read_sysfs_path $hostpath/board_name)
+    local version_product=$(read_sysfs_path $hostpath/version_product)
+    local version_fw=$(read_sysfs_path $hostpath/version_fw)
 
     # read SAS host properties
-    local host_sas_address=$(<$hostpath/host_sas_address)
+    local host_sas_address=$(read_sysfs_path $hostpath/host_sas_address)
 
     printf "\n\tSAS Host Identification: '$board_name' [product: '$version_product', firmware: $version_fw]\n"
     printf "\tSAS Host Address: $host_sas_address\n"
@@ -332,8 +331,8 @@ function show_sas_node()
     local expanderpath="$devpath/sas_expander/$devname"
     
     if [ -d $expanderpath ]; then
-	local product_id=$(<$expanderpath/product_id)
-	local product_rev=$(<$expanderpath/product_rev)
+	local product_id=$(read_sysfs_path $expanderpath/product_id)
+	local product_rev=$(read_sysfs_path $expanderpath/product_rev)
 	
 	printf "\n$prepend""SAS Expander $devname [product: '$product_id', revision: $product_rev]\n"
 	prepend="$prepend""\t"
@@ -347,10 +346,10 @@ function show_sas_node()
 	    local phy=`basename $phypath`
 	    local phy_devpath="$devpath/$phy/sas_phy/$phy"
 	
-	    local sas_address=$(<$phy_devpath/sas_address)
-	    local maximum_linkrate=$(<$phy_devpath/maximum_linkrate)
-	    local minimum_linkrate=$(<$phy_devpath/minimum_linkrate)
-	    local negotiated_linkrate=$(<$phy_devpath/negotiated_linkrate)
+	    local sas_address=$(read_sysfs_path $phy_devpath/sas_address)
+	    local maximum_linkrate=$(read_sysfs_path $phy_devpath/maximum_linkrate)
+	    local minimum_linkrate=$(read_sysfs_path $phy_devpath/minimum_linkrate)
+	    local negotiated_linkrate=$(read_sysfs_path $phy_devpath/negotiated_linkrate)
 	    
 	    printf "$prepend""PHY $phy at SAS Address $sas_address "
 	    printf "[link rates: $minimum_linkrate/$maximum_linkrate (min/max), negotiation status: $negotiated_linkrate]\n"
@@ -365,7 +364,7 @@ function show_sas_node()
 	    local port=`basename $portpath`
 	    local port_devpath="$devpath/$port/sas_port/$port"
 	    
-	    local num_phys=$(<$port_devpath/num_phys)
+	    local num_phys=$(read_sysfs_path $port_devpath/num_phys)
 	    
 	    printf "\n$prepend""Port $port [PHY count: $num_phys]\n"
 	    printf "$prepend\t""Assigned PHY(s):"
@@ -389,12 +388,12 @@ function show_sas_node()
 		    local enddev=`basename $enddevpath`
 		    local enddev_devpath="$enddevpath/sas_device/$enddev"
 		    
-		    local sas_address=$(<$enddev_devpath/sas_address)
-		    local device_type=$(<$enddev_devpath/device_type)
-		    local enclosure_identifier=$(<$enddev_devpath/enclosure_identifier)
-		    local bay_identifier=$(<$enddev_devpath/bay_identifier)
-		    local initiator_port_protocols=$(<$enddev_devpath/initiator_port_protocols)
-		    local target_port_protocols=$(<$enddev_devpath/target_port_protocols)
+		    local sas_address=$(read_sysfs_path $enddev_devpath/sas_address)
+		    local device_type=$(read_sysfs_path $enddev_devpath/device_type)
+		    local enclosure_identifier=$(read_sysfs_path $enddev_devpath/enclosure_identifier)
+		    local bay_identifier=$(read_sysfs_path $enddev_devpath/bay_identifier)
+		    local initiator_port_protocols=$(read_sysfs_path $enddev_devpath/initiator_port_protocols)
+		    local target_port_protocols=$(read_sysfs_path $enddev_devpath/target_port_protocols)
 		    
 		    printf "\n"
 		    printf "$prepend\t""Device $enddev at SAS Address $sas_address\n"
@@ -474,8 +473,8 @@ function show_srp_if()
     fi
 
     # get associated InfiniBand HCA and port
-    local ibdev=$(<$srpnodepath/ibdev)
-    local port=$(<$srpnodepath/port)
+    local ibdev=$(read_sysfs_path $srpnodepath/ibdev)
+    local port=$(read_sysfs_path $srpnodepath/port)
 
     printf "InfiniBand SRP Interface: $srpnode [device $ibdev, port $port]\n"
 
@@ -485,13 +484,13 @@ function show_srp_if()
 
 	# if we can access the HCA device, query some attributes
 	if [ -d $ibdevpath ]; then
-	    local fw_ver=$(<$ibdevpath/fw_ver)
-	    local hca_type=$(<$ibdevpath/hca_type)
-	    local node_desc=$(<$ibdevpath/node_desc)
-	    local hw_rev=$(<$ibdevpath/hw_rev)
-	    local node_type=$(<$ibdevpath/node_type)
-	    local node_guid=$(<$ibdevpath/node_guid)
-	    local sys_image_guid=$(<$ibdevpath/sys_image_guid)
+	    local fw_ver=$(read_sysfs_path $ibdevpath/fw_ver)
+	    local hca_type=$(read_sysfs_path $ibdevpath/hca_type)
+	    local node_desc=$(read_sysfs_path $ibdevpath/node_desc)
+	    local hw_rev=$(read_sysfs_path $ibdevpath/hw_rev)
+	    local node_type=$(read_sysfs_path $ibdevpath/node_type)
+	    local node_guid=$(read_sysfs_path $ibdevpath/node_guid)
+	    local sys_image_guid=$(read_sysfs_path $ibdevpath/sys_image_guid)
 
 	    printf "\tHCA Type: $hca_type [hw revision: $hw_rev, firmware: $fw_ver]\n"
 	    printf "\tNode Type: '$node_type' [description: '$node_desc']\n"
@@ -502,7 +501,7 @@ function show_srp_if()
 	fi
 
 	# get NUMA node# for the PCI device
-	local numa_node=$(<$srpnodepath/device/numa_node)
+	local numa_node=$(read_sysfs_path $srpnodepath/device/numa_node)
 	printf "\tNUMA Node: $numa_node\n\n"
 
 	# get SCSI host interfaces for this SRP interface
@@ -516,8 +515,8 @@ function srp_node_hosts()
 {
     local srpnodepath=$1
 
-    local ibdev=$(<$srpnodepath/ibdev)
-    local port=$(<$srpnodepath/port)
+    local ibdev=$(read_sysfs_path $srpnodepath/ibdev)
+    local port=$(read_sysfs_path $srpnodepath/port)
 
     local -a hosts=()
     local hostcount=0
@@ -532,8 +531,8 @@ function srp_node_hosts()
 	    scsihost="/sys/class/scsi_host/$host"
  
 	    if [ -d $scsihost ]; then
-		local_ib_device=$(<$scsihost/local_ib_device)
-		local_ib_port=$(<$scsihost/local_ib_port)
+		local_ib_device=$(read_sysfs_path $scsihost/local_ib_device)
+		local_ib_port=$(read_sysfs_path $scsihost/local_ib_port)
 
 		if [ "$local_ib_device" == "$ibdev" ] && [ "$local_ib_port" == "$port" ]; then
 		    hosts[$hostcount]=$host
@@ -544,4 +543,21 @@ function srp_node_hosts()
     done
 
     printf "${hosts[*]}"
+}
+
+function read_sysfs_path()
+{
+    local path=$1
+
+    if [ -e $path ]; then
+	local value=$(<$path)
+
+	if [ "$value" != "" ]; then
+	    echo $value
+	else
+	    echo "NULL"
+	fi
+    else
+	echo "N/A"
+    fi
 }
