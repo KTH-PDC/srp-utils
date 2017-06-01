@@ -1,22 +1,21 @@
 #!/bin/bash
 
+# define ESOS ALUA device group to configure
+ALUA_DEVGROUP="esos"
+
+# define SRP ALUA targets to configure
+ALUA_TARGETS=""
+
+# define ESOS SRP initiator host groups to define
+HOST_GROUPS=""
+
+
 println() {
     printf "\e[1m$1\e[0m\n"
 }
 
-
-# define SRP ALUA targets to configure
-ALUA_TARGETS="fe80:0000:0000:0000:0002:c903:0002:bb1c fe80:0000:0000:0001:0002:c903:0002:bb1d"
-
-# define ESOS ALUA device group to configure
-ALUA_DEVGROUP="esos"
-
-# define ESOS SRP initiator host groups to define
-HOST_GROUPS="pdc-irods-resc-zfs-01 pdc-irods-resc-zfs-02"
-
 # we start from relative target id 1
 rel_tgt_id=1
-
 
 println "Creating ALUA device group: $ALUA_DEVGROUP"
 scstadmin -add_dgrp $ALUA_DEVGROUP
@@ -46,5 +45,8 @@ for target in $ALUA_TARGETS; do
     scstadmin -enable_target $target -driver ib_srpt
 done
 
+println "Saving SCST configuration..."
+scstadmin -write_config /etc/scst.conf
+
 println "Synchronizing ESOS configuration..."
-# /usr/local/sbin/usb_sync.sh 
+/usr/local/sbin/usb_sync.sh 
