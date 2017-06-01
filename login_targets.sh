@@ -11,5 +11,5 @@ cat $FILE | while read s; do
     target2_login=$(for umad_dev in /dev/infiniband/umad*; do ibsrpdm -c -d $umad_dev; done| grep $target2)
 
     echo $target1_login > /sys/class/infiniband_srp/srp-mlx4_0-1/add_target
-    echo $target2_login > /sys/class/infiniband_srp/srp-mlx4_0-2/add_target
+    echo $target2_login > /sys/class/infiniband_srp/srp-mlx4_1-1/add_target
 done
