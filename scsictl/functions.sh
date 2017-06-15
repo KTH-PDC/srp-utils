@@ -561,3 +561,110 @@ function read_sysfs_path()
 	echo "N/A"
     fi
 }
+
+
+function dev_action()
+{
+    local action=$1
+    local class=$2
+
+    if [ "$class" == "all" ]; then
+	dev_action_all $@
+    elif [ "$class" == "host" ]; then
+	dev_action_host $@
+    elif [ "$class" == "target" ]; then
+	dev_action_target $@
+    else
+	echo "$prog: usage $prog $action {all|host|target}"
+    fi
+}
+
+function dev_action_all()
+{
+    local action=$1
+
+    echo "device action '$action' for all devices"
+    
+    local devicepaths="/sys/class/scsi_device/[0-9]*:[0-9]*:[0-9]*:[0-9]*/"
+
+    for devicepath in $devicepaths; do
+	if [ -d $devicepath ]; then
+	    echo "found device path $devicepath"
+	    dev_action_devicepath $action $devicepath
+	fi
+    done
+    
+}
+
+function dev_action_host()
+{
+    local action=$1
+    local host=$3
+
+    echo "device action '$action' for host: $host"
+}
+
+function dev_action_target()
+{
+    local action=$1
+    local target=$3
+
+    echo "device action '$action' for target: $target"
+}
+
+function dev_action_devicepath()
+{
+    local action=$1
+    local devicepath=$2
+
+    case "$action" in 
+	delete)
+	    dev_action_delete $devicepath
+	    ;;
+	rescan)
+	    dev_action_rescan $devicepath
+	    ;;
+	blockdev)
+	    dev_action_blockdev $devicepath
+	    ;;
+	wwid)
+	    dev_action_wwid $devicepath
+	    ;;
+    esac
+}
+
+function dev_action_delete()
+{
+    local devicepath=$1
+    local device=$(basename $devicepath)
+
+    echo "delete path $devicepath"
+    echo 1 > $devicepath/device/delete
+
+    if [ $? -eq 0 ]; then
+	echo "$prog: device $device deleted successfully"
+    else
+	echo "$prog: error deleting delete $device"
+    fi	
+}
+
+function dev_action_rescan()
+{
+    local devicepath=$1
+
+    echo "rescan path $devicepath"
+}
+
+function dev_action_blockdev()
+{
+    local devicepath=$1
+
+    echo "rescan path $devicepath"
+}
+
+function dev_action_wwid()
+{
+    local devicepath=$1
+
+    echo "wwid for path $devicepath"
+}

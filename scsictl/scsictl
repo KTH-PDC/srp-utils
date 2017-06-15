@@ -22,14 +22,22 @@ case "$1" in
 	;;
     
     delete)
-        dev_delete
+        dev_action $@
         ;;
     
     rescan)
-	rescan_bus
+	dev_action $@
         ;;
 
+    blockdev)
+	dev_action $@
+	;;
+
+    wwid)
+	dev_action $@
+	;;
+
     *)
-        echo $"Usage: $0 {show|status|delete|rescan}"
+        echo "usage: $0 {show|srp|delete|rescan|blockdev|wwid}"
         exit 1
 esac
