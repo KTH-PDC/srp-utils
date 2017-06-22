@@ -604,8 +604,6 @@ function dev_action_host()
     local action=$1
     local host=$3
 
-    echo "device action '$action' for host: $host"
-
     if [[ "$host" =~ ^host[0-9]*$ ]]; then
 	host=$(echo $host|sed -e 's/host//g')
     fi
@@ -614,7 +612,7 @@ function dev_action_host()
 
     for devicepath in $devicepaths; do
 	if [ -d $devicepath ]; then
-	    echo "found device path $devicepath"
+	    dev_action_devicepath $action $devicepath
 	fi
     done
 }
@@ -624,8 +622,6 @@ function dev_action_target()
     local action=$1
     local target=$3
 
-    echo "device action '$action' for target: $target"
-
     if [[ "$target" =~ ^target[0-9]*:[0-9]*:[0-9]*$ ]]; then
 	target=$(echo $target|sed -e 's/target//g')
     fi
@@ -634,7 +630,7 @@ function dev_action_target()
 
     for devicepath in $devicepaths; do
 	if [ -d $devicepath ]; then
-	    echo "found device path $devicepath"
+	    dev_action_devicepath $action $devicepath
 	fi
     done
 }
@@ -665,7 +661,6 @@ function dev_action_delete()
     local devicepath=$1
     local device=$(basename $devicepath)
 
-    echo "delete path $devicepath"
     echo 1 > $devicepath/device/delete
 
     if [ $? -eq 0 ]; then
@@ -678,20 +673,37 @@ function dev_action_delete()
 function dev_action_rescan()
 {
     local devicepath=$1
+    local device=$(basename $devicepath)
 
-    echo "rescan path $devicepath"
+    echo 1 > $devicepath/device/rescan
+
+    if [ $? -eq 0 ]; then
+	echo "$prog: device $device rescan requested successfully"
+    else
+	echo "$prog: error when requesting device $device rescan"
+    fi
 }
 
 function dev_action_blockdev()
 {
     local devicepath=$1
+    local device=$(basename $devicepath)
 
-    echo "rescan path $devicepath"
+    local blockdevpaths="$devicepath/device/block/*"
+
+    for blockdevpath in $blockdevpaths; do
+	if [ -d $blockdevpath ]; then
+	    local blockdev=$(basename $blockdevpath)
+	    echo "/dev/$blockdev"
+	fi
+    done
 }
 
 function dev_action_wwid()
 {
     local devicepath=$1
+    local device=$(basename $devicepath)
 
-    echo "wwid for path $devicepath"
+    local blockdevice=$(dev_action_blockdev $devicepath)
+    
 }
