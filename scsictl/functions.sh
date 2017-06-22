@@ -583,7 +583,10 @@ function dev_action_all()
 {
     local action=$1
 
-    echo "device action '$action' for all devices"
+    if [ "$action" == "delete" ]; then
+	echo "$prog: delete disallowed for all devices!"
+	exit
+    fi
     
     local devicepaths="/sys/class/scsi_device/[0-9]*:[0-9]*:[0-9]*:[0-9]*/"
 
@@ -602,6 +605,18 @@ function dev_action_host()
     local host=$3
 
     echo "device action '$action' for host: $host"
+
+    if [[ "$host" =~ ^host[0-9]*$ ]]; then
+	$host=$(echo $host|sed -e 's/host//g')
+    fi
+
+    local devicepaths="/sys/class/scsi_device/$host:[0-9]*:[0-9]*:[0-9]*/"
+
+    for devicepath in $devicepaths; do
+	if [ -d $devicepath ]; then
+	    echo "found device path $devicepath"
+	fi
+    done
 }
 
 function dev_action_target()
