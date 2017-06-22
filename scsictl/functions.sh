@@ -6,7 +6,7 @@
 # Copyright (C) 2017 KTH Royal Institute of Technology. All rights reserved.
 # See LICENSE file for more information
 
-prog="scsictl"
+prog=$(basename $0)
 
 function srp_action()
 {
