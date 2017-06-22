@@ -607,7 +607,7 @@ function dev_action_host()
     echo "device action '$action' for host: $host"
 
     if [[ "$host" =~ ^host[0-9]*$ ]]; then
-	$host=$(echo $host|sed -e 's/host//g')
+	host=$(echo $host|sed -e 's/host//g')
     fi
 
     local devicepaths="/sys/class/scsi_device/$host:[0-9]*:[0-9]*:[0-9]*/"
@@ -625,6 +625,18 @@ function dev_action_target()
     local target=$3
 
     echo "device action '$action' for target: $target"
+
+    if [[ "$target" =~ ^target[0-9]*:[0-9]*:[0-9]*$ ]]; then
+	target=$(echo $target|sed -e 's/target//g')
+    fi
+
+    local devicepaths="/sys/class/scsi_device/$target:[0-9]*/"
+
+    for devicepath in $devicepaths; do
+	if [ -d $devicepath ]; then
+	    echo "found device path $devicepath"
+	fi
+    done
 }
 
 function dev_action_devicepath()
