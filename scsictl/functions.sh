@@ -705,5 +705,11 @@ function dev_action_wwid()
     local device=$(basename $devicepath)
 
     local blockdevice=$(dev_action_blockdev $devicepath)
+    local wwid=$(/usr/lib/udev/scsi_id -g $blockdevice)
     
+    if [ "$wwid" != "" ]; then
+	echo $wwid
+    else
+	echo "error when resolving device $device SCSI WWID!" > /dev/stderr
+    fi
 }
